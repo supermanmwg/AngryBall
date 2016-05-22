@@ -21,6 +21,7 @@ import com.angryball.utils.DisplayUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadFactory;
 
 /**
@@ -78,6 +79,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     private float[] mYPositions;
     private float[] mResetOneYPositions;
     private float[] mResetTwoYPositions;
+
 
     private int mXOffsetSpeedOne;
     private int mXOffsetSpeedTwo;
@@ -150,23 +152,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         mWavePaint.setStyle(Paint.Style.FILL);
         // 设置画笔颜色
         mWavePaint.setColor(WAVE_PAINT_COLOR);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    mYoffset += 1;
-                    if (mYoffset > ballScopeCenterY) {
-                        mYoffset = 0;
-                    }
-                    //   Log.d(TAG, "offset y is " + mYoffset);
-                    try {
-                        Thread.sleep(200);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }).start();
+
     }
 
     private void initHitRect() {
@@ -221,7 +207,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
 
     private void resetPositonY() {
         // mXOneOffset代表当前第一条水波纹要移动的距离
-        int yOneInterval = mYPositions.length - mXOneOffset;
+       int yOneInterval = mYPositions.length - mXOneOffset;
         // 使用System.arraycopy方式重新填充第一条波纹的数据
         System.arraycopy(mYPositions, mXOneOffset, mResetOneYPositions, 0, yOneInterval);
         System.arraycopy(mYPositions, 0, mResetOneYPositions, yOneInterval, mXOneOffset);
@@ -230,6 +216,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         System.arraycopy(mYPositions, mXTwoOffset, mResetTwoYPositions, 0,
                 yTwoInterval);
         System.arraycopy(mYPositions, 0, mResetTwoYPositions, yTwoInterval, mXTwoOffset);
+
     }
 
 
@@ -237,6 +224,23 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     public void surfaceCreated(SurfaceHolder holder) {
         isDrawing = true;
         new Thread(this).start();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (isDrawing) {
+                    mYoffset += 1;
+                    if (mYoffset > ballScopeCenterY) {
+                        mYoffset = 0;
+                    }
+                    //   Log.d(TAG, "offset y is " + mYoffset);
+                    try {
+                        Thread.sleep(200);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }).start();
     }
 
     @Override
@@ -254,7 +258,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         while (isDrawing) {
             draw();
 
-            if(mYoffset > getHeight() - ballScopeCenterY - ballRadius * 2) {
+            if (mYoffset > getHeight() - ballScopeCenterY - ballRadius * 2) {
                 post(new Runnable() {
                     @Override
                     public void run() {
@@ -329,8 +333,8 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
                 mXTwoOffset = 0;
             }
 
-           //重画hit区域
-           // mCanvas.drawCircle(hitPosX + hitWidth / 2, hitPosY + hitHeight / 2, hitWidth /2 , mHitPaint);
+            //重画hit区域
+            // mCanvas.drawCircle(hitPosX + hitWidth / 2, hitPosY + hitHeight / 2, hitWidth /2 , mHitPaint);
             mCanvas.drawRect(hitPosX, hitPosY, hitPosX + hitWidth, hitPosY + hitHeight, mHitPaint);
         } catch (Exception e) {
             e.printStackTrace();
@@ -392,10 +396,10 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
                             ballCenterY = flyPointList.get(i).getY();
                         }
 
-                        for(int j = flyPointList.size() - 1; j >0; j--) {
+                        for (int j = flyPointList.size() - 1; j > 0; j--) {
                             int lastFlyY = flyPointList.get(j).getY();
                             int lastFlyX = flyPointList.get(j).getX();
-                            if (lastFlyY > hitPosY && lastFlyY < hitPosY + hitHeight && lastFlyX > hitPosX && lastFlyX< hitPosX + hitWidth) {
+                            if (lastFlyY > hitPosY && lastFlyY < hitPosY + hitHeight && lastFlyX > hitPosX && lastFlyX < hitPosX + hitWidth) {
                                 post(new Runnable() {
                                     @Override
                                     public void run() {
