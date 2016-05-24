@@ -16,14 +16,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.widget.Toast;
 
-import com.angryball.datas.FlyPoint;
 import com.angryball.utils.DisplayUtils;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ThreadFactory;
-
 /**
  * Created by weiguangmeng on 16/5/22.
  */
@@ -55,13 +48,13 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     private float sin = 0f;
     private float initVelocity = 45f;
     private float velocityScale = 1f;
-    private List<FlyPoint> flyPointList = new ArrayList<>();
+    private int[] flyPointListY = new int[6000];
+    private int[] flyPointListX = new int[6000];
     private boolean isActionUp = false;
     private int saveBallCenterX;
     private int saveBallCenterY;
     private int actionUpCount = 0;
     private int oldActionUpCount = 0;
-
 
     //水纹
     // 波纹颜色
@@ -76,9 +69,9 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     private float mCycleFactorW;
 
     private int mTotalWidth, mTotalHeight;
-    private float[] mYPositions;
-    private float[] mResetOneYPositions;
-    private float[] mResetTwoYPositions;
+    private int[] mYPositions;
+    private int[] mResetOneYPositions;
+    private int[] mResetTwoYPositions;
 
 
     private int mXOffsetSpeedOne;
@@ -95,6 +88,8 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     private int hitHeight;
     private int hitPosX;
     private int hitPosY;
+
+    private int timeCount;
 
     private void onSizeChangedHit(int w, int h, int oldw, int oldh) {
         hitWidth = w / 20;
@@ -158,7 +153,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
     private void initHitRect() {
         mHitPaint = new Paint();
         mHitPaint.setAntiAlias(true);
-        mHitPaint.setStyle(Paint.Style.STROKE);
+       // mHitPaint.setStyle(Paint.Style.STROKE);
     }
 
 
@@ -170,7 +165,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         boardHeight = getMeasuredHeight();
         ballRadius = (int) (ballRadiusScale * boardWidth);
         ballScopeRadius = (int) (ballScopeRadiusScale * boardWidth);
-        ballScopeCenterX = (boardWidth / 10);
+        ballScopeCenterX = (boardWidth / 8);
         ballScopeCenterY = boardHeight / 2;
         ballCenterX = ballScopeCenterX;
         ballCenterY = ballScopeCenterY;
@@ -188,21 +183,21 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         mTotalWidth = w;
         mTotalHeight = h;
         // 用于保存原始波纹的y值
-        mYPositions = new float[mTotalWidth];
+        mYPositions = new int[mTotalWidth];
         // 用于保存波纹一的y值
-        mResetOneYPositions = new float[mTotalWidth];
+        mResetOneYPositions = new int[mTotalWidth];
         // 用于保存波纹二的y值
-        mResetTwoYPositions = new float[mTotalWidth];
+        mResetTwoYPositions = new int[mTotalWidth];
 
         // 将周期定为view总宽度
         mCycleFactorW = (float) (2 * Math.PI / mTotalWidth);
 
         // 根据view总宽度得出所有对应的y值
         for (int i = 0; i < mTotalWidth; i++) {
-            mYPositions[i] = (float) (STRETCH_FACTOR_A * Math.sin(mCycleFactorW * i) + OFFSET_Y);
+          mYPositions[i] = (int) (STRETCH_FACTOR_A * Math.sin(mCycleFactorW * i) + OFFSET_Y);
         }
 
-        mYoffset = getHeight() - 20;
+        mYoffset = 0;
     }
 
     private void resetPositonY() {
@@ -216,7 +211,6 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         System.arraycopy(mYPositions, mXTwoOffset, mResetTwoYPositions, 0,
                 yTwoInterval);
         System.arraycopy(mYPositions, 0, mResetTwoYPositions, yTwoInterval, mXTwoOffset);
-
     }
 
 
@@ -229,10 +223,6 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
             public void run() {
                 while (isDrawing) {
                     mYoffset += 1;
-                    if (mYoffset > ballScopeCenterY) {
-                        mYoffset = 0;
-                    }
-                    //   Log.d(TAG, "offset y is " + mYoffset);
                     try {
                         Thread.sleep(200);
                     } catch (InterruptedException e) {
@@ -258,7 +248,7 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
         while (isDrawing) {
             draw();
 
-            if (mYoffset > getHeight() - ballScopeCenterY - ballRadius * 2) {
+            if (mYoffset > getHeight() - ballScopeCenterY + STRETCH_FACTOR_A * 2) {
                 post(new Runnable() {
                     @Override
                     public void run() {
@@ -281,21 +271,25 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
 
             if (Math.abs(ballCenterX - ballScopeCenterX) > 10 && (ballCenterX < ballScopeCenterX)) {
                 mBallLinePath.reset();
-                if (!isActionUp) {
-                    flyPointList.clear();
-                }
                 mBallLinePath.moveTo(ballCenterX, ballCenterY);
 
                 if (!isActionUp) {
-                    for (int t = 0; ; t++) {
+                    int t = 0;
+                    for (; ; t++) {
                         int x = (int) (initVelocity * velocityScale * cos * t) + saveBallCenterX;
                         int y = (int) (initVelocity * velocityScale * sin * t + t * t / 2) + saveBallCenterY;
-                        if (x > getWidth() - ballRadius || y > getHeight() + ballRadius)
+                        if (x > getWidth() + ballRadius || y > getHeight() + ballRadius) {
+                            timeCount = t;
                             break;
+                        }
+
                         y = Math.min(Math.max(0 - ballRadius, y), getHeight() + ballRadius);
-                        flyPointList.add(new FlyPoint(x, y));
+                        flyPointListX[t] = x;
+                        flyPointListY[t] = y;
+
                         mBallLinePath.lineTo(x, y);
                     }
+
 
                     if (getActionUpCount() == oldActionUpCount) {
                         mCanvas.drawPath(mBallLinePath, mBallLinePaint);
@@ -386,28 +380,35 @@ public class AngryBallSurfaceView extends SurfaceView implements SurfaceHolder.C
                     public void run() {
                         isActionUp = true;
                         setActionUpCount(actionUpCount++);
-                        for (int i = 0; i < flyPointList.size(); i++) {
+                        for (int i = 0; i < timeCount; i++) {
                             try {
                                 Thread.sleep(40);
                             } catch (InterruptedException e) {
                                 e.printStackTrace();
                             }
-                            ballCenterX = flyPointList.get(i).getX();
-                            ballCenterY = flyPointList.get(i).getY();
+                            ballCenterX = flyPointListX[i];
+                            ballCenterY = flyPointListY[i];
                         }
 
-                        for (int j = flyPointList.size() - 1; j > 0; j--) {
-                            int lastFlyY = flyPointList.get(j).getY();
-                            int lastFlyX = flyPointList.get(j).getX();
+                        for (int j = timeCount; j > 0; j--) {
+                            int lastFlyY = flyPointListY[j];
+                            int lastFlyX = flyPointListX[j];
                             if (lastFlyY > hitPosY && lastFlyY < hitPosY + hitHeight && lastFlyX > hitPosX && lastFlyX < hitPosX + hitWidth) {
                                 post(new Runnable() {
                                     @Override
                                     public void run() {
+                                        mHitPaint.setColor(Color.RED);
+                                        postDelayed(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                mHitPaint.setColor(Color.BLACK);
+                                            }
+                                        }, 2000);
                                         Toast.makeText(getContext(), "hit", Toast.LENGTH_SHORT).show();
                                         mYoffset -= 40;
                                         hitPosY = (int) (Math.random() * (getHeight() - Math.max(STRETCH_FACTOR_A, mYoffset + STRETCH_FACTOR_A)));
-                                        ballScopeCenterY = Math.max(STRETCH_FACTOR_A * 2, STRETCH_FACTOR_A * 2 + (int) (Math.random() * (getHeight() - Math.max(STRETCH_FACTOR_A * 2, mYoffset + STRETCH_FACTOR_A * 2))));
-                                        ballCenterY = ballScopeCenterY;
+                                      /*  ballScopeCenterY = Math.max(STRETCH_FACTOR_A * 2, STRETCH_FACTOR_A * 2 + (int) (Math.random() * (getHeight() - Math.max(STRETCH_FACTOR_A * 2, mYoffset + STRETCH_FACTOR_A * 2))));
+                                        ballCenterY = ballScopeCenterY;*/
                                     }
                                 });
                                 break;
